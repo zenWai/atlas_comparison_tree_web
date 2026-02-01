@@ -1,7 +1,30 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react'
 import { Table, Input, Button, Space, ConfigProvider, theme } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { Key } from 'react'
+
+// Highlight matching text in a string
+function highlightText(text: string, search: string): ReactNode {
+  if (!search.trim() || !text) return text
+
+  const searchLower = search.toLowerCase()
+  const textLower = text.toLowerCase()
+  const index = textLower.indexOf(searchLower)
+
+  if (index === -1) return text
+
+  const before = text.slice(0, index)
+  const match = text.slice(index, index + search.length)
+  const after = text.slice(index + search.length)
+
+  return (
+    <>
+      {before}
+      <mark style={{ background: '#ffe066', padding: '0 2px', borderRadius: 2 }}>{match}</mark>
+      {after}
+    </>
+  )
+}
 
 interface RegionData {
   atlases: string[]
@@ -53,6 +76,7 @@ function App() {
         key: 'name',
         width: 350,
         fixed: 'left',
+        render: (value: string) => highlightText(value, searchText),
       }
     ]
 
@@ -68,13 +92,13 @@ function App() {
           if (!value) {
             return <span style={{ color: '#ccc' }}>—</span>
           }
-          return <span style={{ fontFamily: 'monospace', fontWeight: 500 }}>{value}</span>
+          return <span style={{ fontFamily: 'monospace', fontWeight: 500 }}>{highlightText(value, searchText)}</span>
         }
       })
     })
 
     return cols
-  }, [atlases, atlasKeys])
+  }, [atlases, atlasKeys, searchText])
 
   // Collect all keys from tree
   const getAllKeys = useCallback((nodes: RegionNode[]): string[] => {
@@ -202,6 +226,7 @@ function App() {
 
         <div className="table-container">
           <Table
+            virtual
             columns={columns}
             dataSource={filteredData}
             loading={loading}
@@ -213,12 +238,6 @@ function App() {
             pagination={false}
             scroll={{ x: 'max-content', y: 'calc(100vh - 220px)' }}
             size="small"
-            rowClassName={(record) => {
-              if (searchText && record.name.toLowerCase().includes(searchText.toLowerCase())) {
-                return 'highlight-row'
-              }
-              return ''
-            }}
           />
         </div>
       </div>
