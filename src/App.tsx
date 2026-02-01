@@ -1,7 +1,9 @@
-import { useState, useEffect, type ReactNode } from 'react'
-import { Table, Input, Button, Space, ConfigProvider, theme } from 'antd'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { Table, Input, Button, Space, ConfigProvider, theme, Grid } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { Key } from 'react'
+
+const { useBreakpoint } = Grid
 
 // Highlight matching text in a string
 function highlightText(text: string, search: string): ReactNode {
@@ -49,6 +51,27 @@ function App() {
   const [searchText, setSearchText] = useState('')
   const [expandedKeys, setExpandedKeys] = useState<readonly Key[]>([])
   const [loading, setLoading] = useState(true)
+  const [tableHeight, setTableHeight] = useState(400)
+  const tableContainerRef = useRef<HTMLDivElement>(null)
+  const screens = useBreakpoint()
+
+  // Calculate table height dynamically
+  useEffect(() => {
+    const calculateHeight = () => {
+      if (tableContainerRef.current) {
+        const height = tableContainerRef.current.clientHeight
+        setTableHeight(Math.max(height - 55, 200)) // 55px for table header
+      }
+    }
+
+    calculateHeight()
+    const resizeObserver = new ResizeObserver(calculateHeight)
+    if (tableContainerRef.current) {
+      resizeObserver.observe(tableContainerRef.current)
+    }
+
+    return () => resizeObserver.disconnect()
+  }, [])
 
   // Load data
   useEffect(() => {
@@ -67,21 +90,26 @@ function App() {
       })
   }, [])
 
+  // Column widths - responsive based on screen size
+  const nameColWidth = screens.md ? 350 : screens.sm ? 250 : 180
+  const atlasColWidth = screens.lg ? 180 : screens.md ? 140 : 100
+  const totalScrollX = nameColWidth + (atlasKeys.length * atlasColWidth) + 50 // +50 for expand icon
+
   // Column definitions
   const columns: ColumnsType<RegionNode> = [
     {
       title: 'Region Name',
       dataIndex: 'name',
       key: 'name',
-      width: 350,
-      fixed: 'left',
+      width: nameColWidth,
+      fixed: screens.sm ? 'left' : undefined, // Only fix on sm+
       render: (value: string) => highlightText(value, searchText),
     },
     ...atlasKeys.map((key, index) => ({
-      title: atlases[index] || key,
+      title: screens.md ? (atlases[index] || key) : (atlases[index]?.split(' ')[0] || key),
       dataIndex: key,
       key: key,
-      width: 180,
+      width: atlasColWidth,
       align: 'center' as const,
       render: (value: string | null) => {
         if (!value) {
@@ -205,7 +233,7 @@ function App() {
           )}
         </div>
 
-        <div className="table-container">
+        <div className="table-container" ref={tableContainerRef}>
           <Table
             virtual
             columns={columns}
@@ -214,10 +242,10 @@ function App() {
             expandable={{
               expandedRowKeys: expandedKeys as Key[],
               onExpand: onExpand,
-              indentSize: 24,
+              indentSize: screens.sm ? 24 : 16,
             }}
             pagination={false}
-            scroll={{ x: 'max-content', y: 'calc(100vh - 220px)' }}
+            scroll={{ x: totalScrollX, y: tableHeight }}
             size="small"
           />
         </div>
